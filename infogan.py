@@ -122,7 +122,7 @@ def weights_init_normal(m):
         torch.nn.init.constant_(m.bias.data, 0.0)
 
 
-def train(latent_dim):
+def train(opt):
     train_dataloader = data_load()
 
     # 생성자(generator)와 판별자(discriminator) 초기화
@@ -149,7 +149,7 @@ def train(latent_dim):
     optimizer_G = torch.optim.Adam(infogan_generator.parameters(), lr=lr, betas=(0.5, 0.999))
     optimizer_D = torch.optim.Adam(infogan_discriminator.parameters(), lr=lr, betas=(0.5, 0.999))
 
-    n_epochs = 200 # 학습의 횟수(epoch) 설정
+    # n_epochs = 200 # 학습의 횟수(epoch) 설정
     # latent_dim = 100
     n_classes = 2
     sample_interval = 500 # 몇 번의 배치(batch)마다 결과를 출력할 것인지 설정
@@ -157,7 +157,7 @@ def train(latent_dim):
 
     os.makedirs('./results/infogan/', exist_ok=True)
 
-    for epoch in range(n_epochs):
+    for epoch in range(opt.n_epochs):
         for i, (imgs, labels) in enumerate(train_dataloader):
 
             # 진짜(real) 이미지와 가짜(fake) 이미지에 대한 정답 레이블 생성
@@ -171,7 +171,7 @@ def train(latent_dim):
             optimizer_G.zero_grad()
 
             # 랜덤 노이즈(noise) 및 랜덤 레이블(label) 샘플링
-            z = torch.normal(mean=0, std=1, size=(imgs.shape[0], latent_dim)).cuda()
+            z = torch.normal(mean=0, std=1, size=(imgs.shape[0], opt.latent_dim)).cuda()
             generated_labels = torch.randint(0, n_classes, (imgs.shape[0],)).cuda()
 
             # 이미지 생성
@@ -199,13 +199,13 @@ def train(latent_dim):
             done = epoch * len(train_dataloader) + i
             if done % sample_interval == 0:
                 # 클래스당 8개의 이미지를 생성하여 2 X 8 격자 이미지에 출력
-                z = torch.normal(mean=0, std=1, size=(n_classes * 8, latent_dim)).cuda()
+                z = torch.normal(mean=0, std=1, size=(n_classes * 8, opt.latent_dim)).cuda()
                 labels = torch.LongTensor([i for i in range(n_classes) for _ in range(8)]).cuda()
                 generated_imgs = infogan_generator(z, labels)
                 save_image(generated_imgs, f'./results/infogan/{done}.png', nrow=8, normalize=True)
 
         # 하나의 epoch이 끝날 때마다 로그(log) 출력
-        print(f'[Epoch {epoch}/{n_epochs}] [D loss: {d_loss.item():.6f}] [G loss: {g_loss.item():.6f}] [Elapsed time: {time.time() - start_time:.2f}s]')
+        print(f'[Epoch {epoch}/{opt.n_epochs}] [D loss: {d_loss.item():.6f}] [G loss: {g_loss.item():.6f}] [Elapsed time: {time.time() - start_time:.2f}s]')
 
     # 모델 파라미터 저장
     torch.save(infogan_generator.state_dict(), 'infoGAN_Generator_for_Face_Mask.pt')
@@ -259,9 +259,10 @@ def test(latent_dim):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--latent_dim", type=int, default=100, help='dimensionality of the latent space')
+    parser.add_argument("--n_epochs", type=int, default=200, help="number of epochs of training")
+    parser.add_argument("--latent_dim", type=int, default=100, help="dimensionality of the latent space")
     opt = parser.parse_args()
-    print(opt)
+    # print(opt)
 
-    # train(opt.latent_dim)
-    # test(opt.latent_dim)
+    train(opt)
+    test(opt.latent_dim)
